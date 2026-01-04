@@ -91,7 +91,7 @@ cd recipe-project
 
 ### 2. Download Recipe Data
 
-Download the [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_database_12042020000000) and extract it to `allrecipes-archive/`.
+Download the [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_recipes_12042020000000) and extract it to `allrecipes-archive/`.
 
 #### Required Directory Structure
 
@@ -254,7 +254,7 @@ Example session:
 
 ### Embedding Model
 
-Uses [Qwen3-Embedding-0.6B](https://huggingface.co/Alibaba-NLP/Qwen3-Embedding-0.6B) with 4-bit quantization:
+Uses [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ), a 4-bit quantized version of [Qwen3-Embedding-0.6B](https://huggingface.co/Alibaba-NLP/Qwen3-Embedding-0.6B) optimized for MLX:
 - 1024-dimensional embeddings
 - Instruction-tuned for retrieval tasks
 - ~300MB quantized weights
@@ -295,6 +295,6 @@ This achieves sub-100ms search latency across 50k recipes on Apple Silicon.
 
 ## Acknowledgments
 
-- Recipe data from [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_database_12042020000000)
-- Embedding model by [Alibaba NLP](https://huggingface.co/Alibaba-NLP)
+- Recipe data from [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_recipes_12042020000000)
+- Embedding model: [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ) by [MLX Community](https://huggingface.co/mlx-community), based on [Alibaba NLP](https://huggingface.co/Alibaba-NLP)
 - MLX framework by [Apple](https://github.com/ml-explore/mlx)
