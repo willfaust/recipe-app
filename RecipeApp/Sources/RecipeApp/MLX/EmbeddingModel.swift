@@ -22,6 +22,12 @@ public actor ModelContainer {
             tokenizerConfig: tokenizerConfig, tokenizerData: tokenizerData)
     }
 
+    /// Initialize from a local directory without network access (for bundled apps)
+    public init(modelDirectory: URL) async throws {
+        self.model = try loadSynchronous(modelDirectory: modelDirectory)
+        self.tokenizer = try loadTokenizerFromDirectory(modelDirectory: modelDirectory)
+    }
+
     public func perform<R>(_ action: @Sendable (EmbeddingModel, Tokenizer) throws -> R) rethrows -> R {
         try action(model, tokenizer)
     }

@@ -69,8 +69,9 @@ recipe-project/
 │   ├── generate_embeddings.py   # Batch embedding generation
 │   ├── convert_to_binary.py     # Convert embeddings to binary
 │   └── search_test.py           # Python search implementation
-├── recipe-app.sh        # Launch GUI app
-└── recipe-search.sh     # Launch CLI
+├── recipe-app.sh        # Launch GUI app (development)
+├── recipe-search.sh     # Launch CLI
+└── build-app.sh         # Build standalone .app bundle
 ```
 
 ## Requirements
@@ -190,16 +191,33 @@ swift build -c release
 
 ### 4. Build the Applications
 
-**GUI App:**
+**GUI App (development):**
 ```bash
-cd RecipeApp
-swift build -c release
+./recipe-app.sh
 ```
 
 **CLI Tool:**
 ```bash
 cd RecipeSearch
 swift build -c release
+```
+
+### 5. Build Standalone App Bundle (Optional)
+
+To create a portable `.app` that can run on any Apple Silicon Mac without setup:
+
+```bash
+./build-app.sh
+```
+
+This creates `build/RecipeApp.app` (~1.7GB) with all resources bundled:
+- Recipe database and embeddings
+- All recipe images
+- MLX model weights and Metal library
+
+To distribute:
+```bash
+cd build && zip -r RecipeApp.zip RecipeApp.app
 ```
 
 ## Usage

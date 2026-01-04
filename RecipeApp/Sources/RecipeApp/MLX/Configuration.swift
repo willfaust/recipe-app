@@ -131,4 +131,22 @@ public struct ModelConfiguration: Sendable {
             return directory
         }
     }
+
+    /// Creates a configuration for the bundled model (if available)
+    public static func bundled() -> ModelConfiguration? {
+        guard let modelDir = ProjectPaths.modelDirectory else {
+            return nil
+        }
+        return ModelConfiguration(directory: modelDir)
+    }
+
+    /// Creates configuration, preferring bundled model over HuggingFace download
+    public static func preferBundled(
+        fallbackId: String = "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ"
+    ) -> ModelConfiguration {
+        if let bundled = Self.bundled() {
+            return bundled
+        }
+        return ModelConfiguration(id: fallbackId)
+    }
 }

@@ -1,12 +1,27 @@
 import Foundation
 
 /// Resolves paths to project data files.
-/// Uses RECIPE_PROJECT_ROOT environment variable if set, otherwise auto-detects
-/// by walking up from the executable location to find the project root.
+/// Supports two modes:
+/// 1. Bundled mode: Resources are inside the .app bundle (for distribution)
+/// 2. Development mode: Uses RECIPE_PROJECT_ROOT env var or auto-detects project root
 enum ProjectPaths {
-    /// Root directory of the recipe-project
-    static let projectRoot: URL = {
-        // Check environment variable first
+    /// Determines if running as a bundled app with embedded resources
+    private static let isBundled: Bool = {
+        if let resourceURL = Bundle.main.resourceURL {
+            let dataURL = resourceURL.appendingPathComponent("Data")
+            return FileManager.default.fileExists(atPath: dataURL.path)
+        }
+        return false
+    }()
+
+    /// Root directory for resources (bundle Resources/ or project root)
+    static let resourceRoot: URL = {
+        // Bundled mode: use app bundle's Resources directory
+        if isBundled, let resourceURL = Bundle.main.resourceURL {
+            return resourceURL
+        }
+
+        // Development mode: check environment variable first
         if let envRoot = ProcessInfo.processInfo.environment["RECIPE_PROJECT_ROOT"] {
             return URL(fileURLWithPath: envRoot)
         }
@@ -29,22 +44,48 @@ enum ProjectPaths {
 
     /// Path to the recipes JSON database
     static var recipesJSON: URL {
-        projectRoot
+        if isBundled {
+            return resourceRoot
+                .appendingPathComponent("Data")
+                .appendingPathComponent("recipes.json")
+        }
+        return resourceRoot
             .appendingPathComponent("allrecipes-archive")
             .appendingPathComponent("allrecipes.com_database_12042020000000.json")
     }
 
     /// Path to the embeddings binary file
     static var embeddingsBin: URL {
-        projectRoot.appendingPathComponent("recipe_embeddings.bin")
+        if isBundled {
+            return resourceRoot
+                .appendingPathComponent("Data")
+                .appendingPathComponent("embeddings.bin")
+        }
+        return resourceRoot.appendingPathComponent("recipe_embeddings.bin")
     }
 
     /// Path to recipe images directory
     static var imagesDirectory: URL {
-        projectRoot
+        if isBundled {
+            return resourceRoot
+                .appendingPathComponent("Images")
+                .appendingPathComponent("250x250")
+        }
+        return resourceRoot
             .appendingPathComponent("allrecipes-archive")
             .appendingPathComponent("images")
             .appendingPathComponent("250x250")
+    }
+
+    /// Path to bundled MLX model directory (nil if not bundled)
+    static var modelDirectory: URL? {
+        if isBundled {
+            let modelDir = resourceRoot.appendingPathComponent("Model")
+            if FileManager.default.fileExists(atPath: modelDir.path) {
+                return modelDir
+            }
+        }
+        return nil
     }
 
     /// Returns the URL for a recipe image

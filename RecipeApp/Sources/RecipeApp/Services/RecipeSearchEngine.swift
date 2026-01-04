@@ -67,9 +67,9 @@ final class RecipeSearchEngine: ObservableObject {
             eval(embeddingsMatrix!)
             loadingStatus = "Loaded embeddings (\(count) x \(dim))"
 
-            // Load model
+            // Load model (prefers bundled model, falls back to HuggingFace download)
             loadingStatus = "Loading embedding model..."
-            let config = ModelConfiguration(id: "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ")
+            let config = ModelConfiguration.preferBundled()
             modelContainer = try await loadModelContainer(configuration: config)
 
             loadingStatus = "Ready"

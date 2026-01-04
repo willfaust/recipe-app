@@ -84,10 +84,17 @@ public func loadModelContainer(
     hub: HubApi = HubApi(), configuration: ModelConfiguration,
     progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
 ) async throws -> ModelContainer {
-    let modelDirectory = try await prepareModelDirectory(
-        hub: hub, configuration: configuration, progressHandler: progressHandler)
-    return try await ModelContainer(
-        hub: hub, modelDirectory: modelDirectory, configuration: configuration)
+    switch configuration.id {
+    case .directory(let directory):
+        // Direct loading from bundled directory - no network required
+        return try await ModelContainer(modelDirectory: directory)
+    case .id:
+        // Network-based loading via HuggingFace Hub
+        let modelDirectory = try await prepareModelDirectory(
+            hub: hub, configuration: configuration, progressHandler: progressHandler)
+        return try await ModelContainer(
+            hub: hub, modelDirectory: modelDirectory, configuration: configuration)
+    }
 }
 
 public func loadTokenizer(configuration: ModelConfiguration, hub: HubApi) async throws -> Tokenizer {
@@ -96,6 +103,27 @@ public func loadTokenizer(configuration: ModelConfiguration, hub: HubApi) async 
 
     return try PreTrainedTokenizer(
         tokenizerConfig: tokenizerConfig, tokenizerData: tokenizerData)
+}
+
+/// Load tokenizer directly from a local directory without network access
+func loadTokenizerFromDirectory(modelDirectory: URL) throws -> Tokenizer {
+    let tokenizerConfigURL = modelDirectory.appendingPathComponent("tokenizer_config.json")
+    let tokenizerDataURL = modelDirectory.appendingPathComponent("tokenizer.json")
+
+    let tokenizerConfigData = try Data(contentsOf: tokenizerConfigURL)
+    let tokenizerData = try Data(contentsOf: tokenizerDataURL)
+
+    // Decode JSON to dictionary, then create Config
+    guard let configDict = try JSONSerialization.jsonObject(with: tokenizerConfigData) as? [NSString: Any],
+          let dataDict = try JSONSerialization.jsonObject(with: tokenizerData) as? [NSString: Any] else {
+        throw EmbedderError(message: "Failed to parse tokenizer JSON files")
+    }
+
+    let tokenizerConfig = Config(configDict)
+    let tokenizerDataConfig = Config(dataDict)
+
+    return try PreTrainedTokenizer(
+        tokenizerConfig: tokenizerConfig, tokenizerData: tokenizerDataConfig)
 }
 
 func loadTokenizerConfig(configuration: ModelConfiguration, hub: HubApi) async throws -> (Config, Config) {
