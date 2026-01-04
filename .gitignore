@@ -1,0 +1,44 @@
+# Data files (download separately)
+allrecipes-archive/
+
+# Generated embeddings and index (generate or download separately)
+*.bin
+*.npz
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Swift
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# Claude Code
+.claude/
+
+# Temporary files
+*.log
+*.tmp
+test_query.bin
