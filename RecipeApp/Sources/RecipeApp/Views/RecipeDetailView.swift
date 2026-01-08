@@ -46,8 +46,8 @@ struct RecipeDetailView: View {
                 headerSection
                 timeSection
                 descriptionSection
-                stepsSection
                 ingredientsAndNutritionSection
+                stepsSection
             }
             .padding()
         }
