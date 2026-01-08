@@ -126,10 +126,12 @@ struct ContentView: View {
 
     @ViewBuilder
     private var resultsContent: some View {
-        if searchEngine.searchResults.isEmpty && !searchEngine.searchQuery.isEmpty {
-            noResultsView
-        } else if searchEngine.searchResults.isEmpty {
+        if searchEngine.searchResults.isEmpty && searchEngine.searchQuery.isEmpty {
             emptySearchView
+        } else if searchEngine.searchResults.isEmpty && searchEngine.isSearching {
+            searchingView
+        } else if searchEngine.searchResults.isEmpty {
+            noResultsView
         } else {
             ScrollView {
                 VStack(spacing: 16) {
@@ -155,6 +157,43 @@ struct ContentView: View {
                 }
                 .padding(12)
             }
+            .overlay {
+                if searchEngine.isSearching {
+                    searchingOverlay
+                }
+            }
+        }
+    }
+
+    private var searchingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
+
+            Text("Searching...")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var searchingOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Updating...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+            .padding()
         }
     }
 

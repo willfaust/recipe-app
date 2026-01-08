@@ -221,16 +221,18 @@ struct SearchResult: Identifiable, Hashable {
     let similarity: Float
 
     init(recipe: Recipe, similarity: Float) {
-        self.id = recipe.id
+        // Include similarity in id so SwiftUI treats different scores as different items
+        self.id = "\(recipe.id)_\(Int(similarity * 1000))"
         self.recipe = recipe
         self.similarity = similarity
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(similarity)
     }
 
     static func == (lhs: SearchResult, rhs: SearchResult) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.similarity == rhs.similarity
     }
 }

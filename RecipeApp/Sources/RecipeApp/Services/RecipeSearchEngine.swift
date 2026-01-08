@@ -22,6 +22,7 @@ final class RecipeSearchEngine: ObservableObject {
     @Published var searchMode: SearchMode = .semantic
     @Published var hasMoreResults = false
     @Published var totalResultCount = 0
+    @Published var isSearching = false
 
     private var recipes: [Recipe] = []
     private var embeddingsMatrix: MLXArray?
@@ -29,6 +30,7 @@ final class RecipeSearchEngine: ObservableObject {
 
     private var searchTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
+    private var searchGeneration = 0  // Track search generation to prevent stale results
 
     private let pageSize = 20
     private var currentPage = 0
@@ -99,6 +101,8 @@ final class RecipeSearchEngine: ObservableObject {
 
     private func performSearch(query: String) {
         searchTask?.cancel()
+        searchGeneration += 1
+        let currentGeneration = searchGeneration
 
         let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
         guard !trimmedQuery.isEmpty else {
@@ -107,84 +111,106 @@ final class RecipeSearchEngine: ObservableObject {
             allTextResults = []
             hasMoreResults = false
             totalResultCount = 0
+            isSearching = false
             return
         }
 
+        isSearching = true
+
         if searchMode == .semantic {
-            performSemanticSearch(query: trimmedQuery)
+            performSemanticSearch(query: trimmedQuery, generation: currentGeneration)
         } else {
-            performTextSearch(query: trimmedQuery)
+            performTextSearch(query: trimmedQuery, generation: currentGeneration)
         }
     }
 
-    private func performSemanticSearch(query: String) {
-        guard let embeddingsMatrix, let modelContainer else { return }
+    private func performSemanticSearch(query: String, generation: Int) {
+        guard let embeddingsMatrix, let modelContainer else {
+            isSearching = false
+            return
+        }
 
         searchTask = Task {
             let queryEmbeddingArray = await modelContainer.perform { model, tokenizer in
                 Self.generateEmbedding(text: query, model: model, tokenizer: tokenizer)
             }
 
-            if Task.isCancelled { return }
+            // Check if this search is still current
+            if Task.isCancelled || generation != searchGeneration { return }
 
             let queryEmbedding = MLXArray(queryEmbeddingArray)
 
             // Get all results sorted by similarity
-            allSemanticResults = Self.searchAll(
+            let results = Self.searchAll(
                 query: queryEmbedding,
                 embeddingsMatrix: embeddingsMatrix
             )
 
-            if Task.isCancelled { return }
+            // Check again after heavy computation
+            if Task.isCancelled || generation != searchGeneration { return }
 
+            allSemanticResults = results
             totalResultCount = allSemanticResults.count
             updateDisplayedResults()
+            isSearching = false
         }
     }
 
-    private func performTextSearch(query: String) {
-        let queryLower = query.lowercased()
-        let queryWords = queryLower.split(separator: " ").map(String.init)
+    private func performTextSearch(query: String, generation: Int) {
+        let recipes = self.recipes  // Capture for async use
 
-        // Score each recipe by text match
-        var scored: [(index: Int, score: Int)] = []
+        searchTask = Task.detached(priority: .userInitiated) {
+            let queryLower = query.lowercased()
+            let queryWords = queryLower.split(separator: " ").map(String.init)
 
-        for (index, recipe) in recipes.enumerated() {
-            var score = 0
+            // Score each recipe by text match
+            var scored: [(index: Int, score: Int)] = []
 
-            let titleLower = recipe.title.lowercased()
-            let descLower = (recipe.description ?? "").lowercased()
-            let ingredientsLower = (recipe.ingredients ?? []).joined(separator: " ").lowercased()
+            for (index, recipe) in recipes.enumerated() {
+                var score = 0
 
-            for word in queryWords {
-                // Title matches are weighted higher
-                if titleLower.contains(word) {
-                    score += 10
+                let titleLower = recipe.title.lowercased()
+                let descLower = (recipe.description ?? "").lowercased()
+                let ingredientsLower = (recipe.ingredients ?? []).joined(separator: " ").lowercased()
+
+                for word in queryWords {
+                    // Title matches are weighted higher
+                    if titleLower.contains(word) {
+                        score += 10
+                    }
+                    if descLower.contains(word) {
+                        score += 3
+                    }
+                    if ingredientsLower.contains(word) {
+                        score += 2
+                    }
                 }
-                if descLower.contains(word) {
-                    score += 3
+
+                // Exact phrase match bonus
+                if titleLower.contains(queryLower) {
+                    score += 20
                 }
-                if ingredientsLower.contains(word) {
-                    score += 2
+
+                if score > 0 {
+                    scored.append((index: index, score: score))
                 }
             }
 
-            // Exact phrase match bonus
-            if titleLower.contains(queryLower) {
-                score += 20
-            }
+            // Sort by score descending
+            scored.sort { $0.score > $1.score }
+            let resultIndices = scored.map { $0.index }
 
-            if score > 0 {
-                scored.append((index: index, score: score))
+            // Update UI on main actor
+            await MainActor.run {
+                // Check if this search is still current
+                guard generation == self.searchGeneration else { return }
+
+                self.allTextResults = resultIndices
+                self.totalResultCount = self.allTextResults.count
+                self.updateDisplayedResults()
+                self.isSearching = false
             }
         }
-
-        // Sort by score descending
-        scored.sort { $0.score > $1.score }
-        allTextResults = scored.map { $0.index }
-
-        totalResultCount = allTextResults.count
-        updateDisplayedResults()
     }
 
     private func updateDisplayedResults() {
