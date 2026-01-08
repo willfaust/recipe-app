@@ -23,12 +23,14 @@ final class RecipeSearchEngine: ObservableObject {
     @Published var hasMoreResults = false
     @Published var totalResultCount = 0
     @Published var isSearching = false
+    @Published var showSearchingIndicator = false  // Only shows after delay
 
     private var recipes: [Recipe] = []
     private var embeddingsMatrix: MLXArray?
     private var modelContainer: ModelContainer?
 
     private var searchTask: Task<Void, Never>?
+    private var searchingIndicatorTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     private var searchGeneration = 0  // Track search generation to prevent stale results
 
@@ -101,6 +103,8 @@ final class RecipeSearchEngine: ObservableObject {
 
     private func performSearch(query: String) {
         searchTask?.cancel()
+        searchingIndicatorTask?.cancel()
+        showSearchingIndicator = false
         searchGeneration += 1
         let currentGeneration = searchGeneration
 
@@ -118,15 +122,30 @@ final class RecipeSearchEngine: ObservableObject {
         isSearching = true
 
         if searchMode == .semantic {
+            // Show indicator only after 0.5s delay for semantic search
+            searchingIndicatorTask = Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                if !Task.isCancelled && isSearching {
+                    showSearchingIndicator = true
+                }
+            }
             performSemanticSearch(query: trimmedQuery, generation: currentGeneration)
         } else {
+            // Show indicator immediately for text search
+            showSearchingIndicator = true
             performTextSearch(query: trimmedQuery, generation: currentGeneration)
         }
     }
 
+    private func finishSearching() {
+        searchingIndicatorTask?.cancel()
+        isSearching = false
+        showSearchingIndicator = false
+    }
+
     private func performSemanticSearch(query: String, generation: Int) {
         guard let embeddingsMatrix, let modelContainer else {
-            isSearching = false
+            finishSearching()
             return
         }
 
@@ -152,7 +171,7 @@ final class RecipeSearchEngine: ObservableObject {
             allSemanticResults = results
             totalResultCount = allSemanticResults.count
             updateDisplayedResults()
-            isSearching = false
+            finishSearching()
         }
     }
 
@@ -208,7 +227,7 @@ final class RecipeSearchEngine: ObservableObject {
                 self.allTextResults = resultIndices
                 self.totalResultCount = self.allTextResults.count
                 self.updateDisplayedResults()
-                self.isSearching = false
+                self.finishSearching()
             }
         }
     }

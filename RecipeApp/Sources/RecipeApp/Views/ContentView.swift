@@ -126,48 +126,56 @@ struct ContentView: View {
 
     @ViewBuilder
     private var resultsContent: some View {
-        if searchEngine.searchResults.isEmpty && searchEngine.searchQuery.isEmpty {
-            emptySearchView
-        } else if searchEngine.searchResults.isEmpty && searchEngine.isSearching {
-            searchingView
-        } else if searchEngine.searchResults.isEmpty {
-            noResultsView
-        } else {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Search mode toggle and result count
-                    searchModeBar
+        Group {
+            if searchEngine.searchResults.isEmpty && searchEngine.searchQuery.isEmpty {
+                emptySearchView
+                    .transition(.opacity)
+            } else if searchEngine.searchResults.isEmpty && searchEngine.showSearchingIndicator {
+                searchingView
+                    .transition(.opacity)
+            } else if searchEngine.searchResults.isEmpty {
+                noResultsView
+                    .transition(.opacity)
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Search mode toggle and result count
+                        searchModeBar
 
-                    // Recipe grid with smooth animations
-                    RecipeFlowLayout(spacing: 12) {
-                        ForEach(searchEngine.searchResults) { result in
-                            RecipeCard(result: result, isSelected: selectedRecipe?.id == result.recipe.id)
-                                .transition(.asymmetric(
-                                    insertion: .scale(scale: 0.8).combined(with: .opacity),
-                                    removal: .scale(scale: 0.8).combined(with: .opacity)
-                                ))
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                        selectedRecipe = result.recipe
+                        // Recipe grid with smooth animations
+                        RecipeFlowLayout(spacing: 12) {
+                            ForEach(searchEngine.searchResults) { result in
+                                RecipeCard(result: result, isSelected: selectedRecipe?.id == result.recipe.id)
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
+                                    .onTapGesture {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            selectedRecipe = result.recipe
+                                        }
                                     }
-                                }
+                            }
+                        }
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: searchEngine.searchResults)
+
+                        // Load more button
+                        if searchEngine.hasMoreResults {
+                            loadMoreButton
                         }
                     }
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: searchEngine.searchResults)
-
-                    // Load more button
-                    if searchEngine.hasMoreResults {
-                        loadMoreButton
-                    }
+                    .padding(12)
                 }
-                .padding(12)
-            }
-            .overlay {
-                if searchEngine.isSearching {
-                    searchingOverlay
+                .transition(.opacity)
+                .overlay {
+                    if searchEngine.showSearchingIndicator {
+                        searchingOverlay
+                    }
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: searchEngine.searchResults.isEmpty)
+        .animation(.easeInOut(duration: 0.2), value: searchEngine.searchQuery.isEmpty)
     }
 
     private var searchingView: some View {
