@@ -39,6 +39,7 @@ extension View {
 
 struct RecipeDetailView: View {
     let recipe: Recipe
+    @State private var ingredientsExpanded = false
 
     var body: some View {
         ScrollView {
@@ -249,7 +250,9 @@ struct RecipeDetailView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 if let ingredients = recipe.ingredients {
-                    ForEach(ingredients.prefix(15), id: \.self) { ingredient in
+                    let displayedIngredients = ingredientsExpanded ? ingredients : Array(ingredients.prefix(15))
+
+                    ForEach(Array(displayedIngredients.enumerated()), id: \.offset) { _, ingredient in
                         HStack(spacing: 12) {
                             Circle()
                                 .fill(.secondary)
@@ -258,13 +261,29 @@ struct RecipeDetailView: View {
                             Text(ingredient)
                                 .font(.body)
                         }
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            removal: .opacity
+                        ))
                     }
 
                     if ingredients.count > 15 {
-                        Text("... and \(ingredients.count - 15) more")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                        Button {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                ingredientsExpanded.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: ingredientsExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.caption)
+                                Text(ingredientsExpanded ? "Show less" : "Show \(ingredients.count - 15) more")
+                                    .font(.caption)
+                            }
+                            .foregroundStyle(.blue)
                             .padding(.leading, 18)
+                            .padding(.top, 4)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
