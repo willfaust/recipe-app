@@ -29,10 +29,10 @@ enum ProjectPaths {
         // Auto-detect: walk up from executable to find project root
         var url = URL(fileURLWithPath: Bundle.main.executablePath ?? FileManager.default.currentDirectoryPath)
 
-        // Walk up looking for allrecipes-archive directory
+        // Walk up looking for nytimes-archive directory
         for _ in 0..<10 {
             url = url.deletingLastPathComponent()
-            let archiveURL = url.appendingPathComponent("allrecipes-archive")
+            let archiveURL = url.appendingPathComponent("nytimes-archive")
             if FileManager.default.fileExists(atPath: archiveURL.path) {
                 return url
             }
@@ -50,8 +50,8 @@ enum ProjectPaths {
                 .appendingPathComponent("recipes.json")
         }
         return resourceRoot
-            .appendingPathComponent("allrecipes-archive")
-            .appendingPathComponent("allrecipes.com_database_12042020000000.json")
+            .appendingPathComponent("nytimes-archive")
+            .appendingPathComponent("nytimes_recipes.json")
     }
 
     /// Path to the embeddings binary file
@@ -61,7 +61,9 @@ enum ProjectPaths {
                 .appendingPathComponent("Data")
                 .appendingPathComponent("embeddings.bin")
         }
-        return resourceRoot.appendingPathComponent("recipe_embeddings.bin")
+        return resourceRoot
+            .appendingPathComponent("nytimes-archive")
+            .appendingPathComponent("recipe_embeddings.bin")
     }
 
     /// Path to recipe images directory
@@ -69,12 +71,11 @@ enum ProjectPaths {
         if isBundled {
             return resourceRoot
                 .appendingPathComponent("Images")
-                .appendingPathComponent("250x250")
         }
         return resourceRoot
-            .appendingPathComponent("allrecipes-archive")
-            .appendingPathComponent("images")
-            .appendingPathComponent("250x250")
+            .appendingPathComponent("nytimes-archive")
+            .appendingPathComponent("recipes")
+            .appendingPathComponent("images-small")
     }
 
     /// Path to bundled MLX model directory (nil if not bundled)

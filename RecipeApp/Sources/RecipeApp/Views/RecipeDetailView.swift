@@ -93,24 +93,25 @@ struct RecipeDetailView: View {
 
     private var headerSection: some View {
         VStack(spacing: 16) {
-            AsyncImage(url: recipe.thumbnailURL) { phase in
-                switch phase {
-                case .empty:
-                    placeholderImage
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(1, contentMode: .fill)
-                case .failure:
-                    placeholderImage
-                @unknown default:
-                    placeholderImage
+            if !recipe.hasGenericPlaceholder {
+                AsyncImage(url: recipe.thumbnailURL) { phase in
+                    switch phase {
+                    case .empty:
+                        placeholderImage
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure:
+                        placeholderImage
+                    @unknown default:
+                        placeholderImage
+                    }
                 }
+                .frame(maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .glassSection(in: RoundedRectangle(cornerRadius: 20))
             }
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: 300)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .glassSection(in: RoundedRectangle(cornerRadius: 20))
 
             HStack {
                 Text(recipe.title)
@@ -120,7 +121,7 @@ struct RecipeDetailView: View {
                 Spacer()
 
                 if let rating = recipe.ratingValue {
-                    ratingBadge(rating)
+                    ratingBadge(rating, count: recipe.ratingCount)
                 }
             }
         }
@@ -144,13 +145,19 @@ struct RecipeDetailView: View {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    private func ratingBadge(_ rating: Double) -> some View {
+    private func ratingBadge(_ rating: Double, count: String?) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "star.fill")
                 .foregroundStyle(.yellow)
 
             Text(String(format: "%.1f", rating))
                 .fontWeight(.semibold)
+
+            if let count = count, let countInt = Int(count), countInt > 0 {
+                Text("(\(countInt))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .font(.title3)
         .padding(.horizontal, 16)
@@ -324,16 +331,24 @@ import AppKit
                 RecipeStep(step: 3, instruction: "Bake for 35 minutes or until a toothpick comes out clean.")
             ],
             rating: "4.8",
+            ratingCount: "243",
             images: nil,
             nutritionalInformation: NutritionInfo(
-                calories: "350", servings: "8", totalFat: "14", saturatedFat: "8",
-                cholesterol: "55", sodium: "320", potassium: "200", totalCarbohydrate: "52",
-                dietryFibre: "2", protein: "5", sugars: "36", vitaminA: "4",
-                vitaminC: "0", calcium: "4", iron: "15"
+                calories: "350",
+                totalFat: "14 grams",
+                saturatedFat: "8 grams",
+                unsaturatedFat: "4 grams",
+                transFat: "0 grams",
+                cholesterol: "55 milligrams",
+                sodium: "320 milligrams",
+                totalCarbohydrate: "52 grams",
+                fiber: "2 grams",
+                sugar: "36 grams",
+                protein: "5 grams"
             ),
-            prepTime: "PT20M",
-            cookTime: "PT35M",
-            totalTime: "PT55M"
+            prepTime: "20",
+            cookTime: "35",
+            totalTime: "55"
         ))
     }
 }

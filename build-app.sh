@@ -36,7 +36,7 @@ echo "  Found executable: $BUILT_EXEC"
 echo "[2/6] Creating app bundle structure..."
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources/Data"
-mkdir -p "$APP_BUNDLE/Contents/Resources/Images/250x250"
+mkdir -p "$APP_BUNDLE/Contents/Resources/Images"
 mkdir -p "$APP_BUNDLE/Contents/Resources/Model"
 
 # Copy executable
@@ -59,18 +59,18 @@ fi
 
 # Step 3: Copy data files
 echo "[3/6] Copying data files..."
-echo "  - Copying recipes JSON (~115MB)..."
-cp "$SCRIPT_DIR/allrecipes-archive/allrecipes.com_database_12042020000000.json" \
+echo "  - Copying recipes JSON (~75MB)..."
+cp "$SCRIPT_DIR/nytimes-archive/nytimes_recipes.json" \
    "$APP_BUNDLE/Contents/Resources/Data/recipes.json"
 
-echo "  - Copying embeddings binary (~197MB)..."
-cp "$SCRIPT_DIR/recipe_embeddings.bin" \
+echo "  - Copying embeddings binary (~98MB)..."
+cp "$SCRIPT_DIR/nytimes-archive/recipe_embeddings.bin" \
    "$APP_BUNDLE/Contents/Resources/Data/embeddings.bin"
 
 # Step 4: Copy images
-echo "[4/6] Copying images (~50k files, this may take a few minutes)..."
-cp -R "$SCRIPT_DIR/allrecipes-archive/images/250x250/." \
-    "$APP_BUNDLE/Contents/Resources/Images/250x250/"
+echo "[4/6] Copying images (~13k files + placeholders)..."
+cp -R "$SCRIPT_DIR/nytimes-archive/recipes/images-small/." \
+    "$APP_BUNDLE/Contents/Resources/Images/"
 
 # Step 5: Copy MLX model files
 echo "[5/6] Copying MLX model (~335MB)..."

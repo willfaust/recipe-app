@@ -1,14 +1,14 @@
 # Recipe Semantic Search
 
-A semantic search engine for recipes powered by [MLX](https://github.com/ml-explore/mlx) on Apple Silicon. Search through 50,000+ recipes using natural language queries like "healthy breakfast with eggs" or "chocolate dessert for parties".
+A semantic search engine for recipes powered by [MLX](https://github.com/ml-explore/mlx) on Apple Silicon. Search through 25,000+ NYTimes Cooking recipes using natural language queries like "healthy breakfast with eggs" or "chocolate dessert for parties".
 
 ## Features
 
 - **Semantic Search**: Find recipes by meaning, not just keywords
 - **GPU-Accelerated**: Uses Apple Silicon GPU via MLX for fast inference and search
-- **Native macOS App**: SwiftUI app with modern design
-- **CLI Tool**: Fast command-line interface for quick searches
+- **Native macOS App**: SwiftUI app with modern glass-effect design
 - **Offline**: All processing happens locally on your device
+- **Standalone Bundle**: Distributable .app with all resources embedded
 
 ## Architecture
 
@@ -54,24 +54,20 @@ A semantic search engine for recipes powered by [MLX](https://github.com/ml-expl
 
 ```
 recipe-project/
-├── RecipeApp/           # SwiftUI macOS application
+├── RecipeApp/              # SwiftUI macOS application
 │   └── Sources/
 │       └── RecipeApp/
-│           ├── Views/           # SwiftUI views
-│           ├── Models/          # Data models
-│           ├── Services/        # Search engine
-│           └── MLX/             # ML model implementation
-├── RecipeSearch/        # Command-line interface
-│   └── Sources/
-│       └── RecipeSearch/
-│           └── main.swift
-├── scripts/             # Python reference scripts
-│   ├── generate_embeddings.py   # Batch embedding generation
-│   ├── convert_to_binary.py     # Convert embeddings to binary
-│   └── search_test.py           # Python search implementation
-├── recipe-app.sh        # Launch GUI app (development)
-├── recipe-search.sh     # Launch CLI
-└── build-app.sh         # Build standalone .app bundle
+│           ├── Views/      # SwiftUI views
+│           ├── Models/     # Data models
+│           ├── Services/   # Search engine
+│           ├── Config/     # Path configuration
+│           └── MLX/        # ML model implementation
+├── nytimes-archive/        # NYTimes recipe data (not in git)
+│   ├── nytimes_recipes.json
+│   ├── recipe_embeddings.bin
+│   └── recipes/images-small/
+├── build-app.sh            # Build standalone .app bundle
+└── build/                  # Build output (not in git)
 ```
 
 ## Requirements
@@ -79,240 +75,138 @@ recipe-project/
 - macOS 15.0+ (Apple Silicon)
 - Xcode 16.0+ with Swift 6
 - ~2GB disk space for model weights
-- ~500MB for recipe embeddings
+- ~100MB for recipe embeddings
 
-## Setup
+## Quick Start
 
-### 1. Clone the Repository
+### Option 1: Run Pre-built App
+
+Download `RecipeApp.tar.gz`, extract, and run:
 
 ```bash
-git clone <repository-url>
-cd recipe-project
+tar -xzf RecipeApp.tar.gz
+open RecipeApp.app
 ```
 
-### 2. Download Recipe Data
+### Option 2: Build from Source
 
-Download the [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_recipes_12042020000000) and extract it to `allrecipes-archive/`.
+1. Clone the repository and obtain the NYTimes recipe data
+2. Build the standalone app:
 
-#### Required Directory Structure
-
-```
-allrecipes-archive/
-├── allrecipes.com_database_12042020000000.json   # Main recipe database (~115MB)
-└── images/
-    └── 250x250/                                   # Recipe thumbnails
-        ├── 162924.jpg
-        ├── 30613.jpg
-        └── ...                                    # ~50k images
+```bash
+./build-app.sh
+open build/RecipeApp.app
 ```
 
-#### Recipe JSON Format
+## Data Setup (for building from source)
 
-The main database is a JSON array of recipe objects with the following structure:
+The `nytimes-archive/` directory should contain:
+
+```
+nytimes-archive/
+├── nytimes_recipes.json       # Recipe database (~75MB)
+├── recipe_embeddings.bin      # Pre-computed embeddings (~98MB)
+└── recipes/
+    └── images-small/          # WebP thumbnails (~727MB)
+        ├── 12345.webp
+        └── ...
+```
+
+### Recipe JSON Format
 
 ```json
 {
-  "id": "14581",
-  "name": "marinated-veggies",
-  "title": "Marinated Veggies",
-  "description": "A healthy way to grill veggies! Makes a great sandwich too!",
-  "rating": "4.48258686065674",
-  "images": ["30613.jpg"],
-  "categories": ["Appetizers and Snacks"],
-  "ingredients": [
-    "1/2 cup thickly sliced zucchini",
-    "1/2 cup sliced red bell pepper",
-    "1/2 cup olive oil",
-    "..."
-  ],
+  "id": "12345",
+  "name": "chocolate-chip-cookies",
+  "title": "Chocolate Chip Cookies",
+  "description": "Classic homemade cookies...",
+  "rating": "5",
+  "rating_count": "127",
+  "images": ["12345.webp"],
+  "ingredients": ["2 cups flour", "1 cup sugar", ...],
   "steps": [
-    {
-      "step": 1,
-      "instruction": "Place the vegetables in a large bowl."
-    },
-    {
-      "step": 2,
-      "instruction": "Mix together olive oil, soy sauce, and lemon juice..."
-    }
+    {"step": 1, "instruction": "Preheat oven to 375°F..."},
+    ...
   ],
-  "prep_time": "PT15M",
-  "cook_time": "PT15M",
-  "total_time": "PT1H",
+  "prep_time": "15",
+  "cook_time": "12",
+  "total_time": "27",
   "nutritional_information": {
-    "calories": "159",
-    "servings": "8",
-    "total_fat": "13.9g",
-    "saturated_fat": "2.0g",
-    "cholesterol": "0mg",
-    "sodium": "909mg",
-    "potassium": "357mg",
-    "total_carbohydrate": "7.9g",
-    "dietry_fibre": "1.6g",
-    "protein": "3.2g",
-    "sugars": "2g",
-    "vitamin_a": "441IU",
-    "vitamin_c": "42mg",
-    "calcium": "14mg",
-    "iron": "1mg"
-  }
+    "calories": "150",
+    "total_fat": "7 grams",
+    "sodium": "95 milligrams",
+    ...
+  },
+  "author": "Author Name",
+  "cuisine": "American",
+  "categories": ["desserts", "cookies"]
 }
 ```
 
-> **Note:** Time fields use ISO 8601 duration format (e.g., `PT15M` = 15 minutes, `PT1H` = 1 hour).
+### Generating Embeddings
 
-### 3. Generate Embeddings
-
-You can either download pre-generated embeddings or generate them yourself.
-
-**Option A: Generate with Python (recommended for customization)**
+If you need to regenerate embeddings:
 
 ```bash
-# Create virtual environment
+cd nytimes-archive
 python3 -m venv venv
 source venv/bin/activate
+pip install mlx mlx-embeddings numpy tqdm
 
-# Install dependencies
-pip install mlx mlx-embeddings numpy
-
-# Generate embeddings (~30 min on M1)
-python scripts/generate_embeddings.py
-
-# Convert to binary format for Swift
-python scripts/convert_to_binary.py
+python generate_embeddings.py
 ```
 
-**Option B: Generate with Swift CLI**
+## Build Standalone App Bundle
 
-```bash
-cd RecipeSearch
-swift build -c release
-# (embedding generation via Swift not yet implemented)
-```
-
-### 4. Build the Applications
-
-**GUI App (development):**
-```bash
-./recipe-app.sh
-```
-
-**CLI Tool:**
-```bash
-cd RecipeSearch
-swift build -c release
-```
-
-### 5. Build Standalone App Bundle (Optional)
-
-To create a portable `.app` that can run on any Apple Silicon Mac without setup:
+Creates a portable `.app` (~1.2GB) with all resources bundled:
 
 ```bash
 ./build-app.sh
 ```
 
-This creates `build/RecipeApp.app` (~1.7GB) with all resources bundled:
+The bundle includes:
 - Recipe database and embeddings
-- All recipe images
+- All recipe images (WebP compressed)
 - MLX model weights and Metal library
 
 To distribute:
 ```bash
-cd build && zip -r RecipeApp.zip RecipeApp.app
-```
-
-## Usage
-
-### macOS App
-
-Launch the GUI application:
-
-```bash
-./recipe-app.sh
-```
-
-Or build and run directly:
-
-```bash
-cd RecipeApp
-swift build -c release
-./.build/release/RecipeApp
-```
-
-Features:
-- Live search as you type
-- Recipe grid with thumbnails
-- Detailed view with ingredients and nutrition facts
-- Dark mode support
-
-### Command Line
-
-```bash
-./recipe-search.sh
-```
-
-Or run directly:
-
-```bash
-cd RecipeSearch
-swift run -c release
-```
-
-Example session:
-```
-> healthy breakfast eggs
-1. [0.734] Veggie Egg White Omelet
-2. [0.721] Healthy Banana Egg Pancakes
-3. [0.718] Spinach and Egg Breakfast Wrap
-...
-
-> quit
+cd build
+tar -czvf RecipeApp.tar.gz RecipeApp.app
 ```
 
 ## Technical Details
 
 ### Embedding Model
 
-Uses [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ), a 4-bit quantized version of [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) optimized for MLX:
+Uses [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ):
 - 1024-dimensional embeddings
+- 4-bit quantized (~335MB weights)
 - Instruction-tuned for retrieval tasks
-- ~300MB quantized weights
-
-### Instruction Prefix
-
-For optimal retrieval quality, queries are prefixed with an instruction:
-
-```
-Instruct: Find recipes matching this description
-Query: <user query>
-```
-
-This significantly improves result relevance for instruction-tuned embedding models.
 
 ### Vector Search
 
-Search is performed via GPU-accelerated matrix multiplication:
+GPU-accelerated matrix multiplication achieves sub-100ms search latency:
 
 ```swift
 let similarities = matmul(queryEmbedding, embeddingsMatrix.T)
 let topIndices = argSort(similarities)[(-k)...]
 ```
 
-This achieves sub-100ms search latency across 50k recipes on Apple Silicon.
-
 ## Dependencies
 
 **Swift:**
 - [mlx-swift](https://github.com/ml-explore/mlx-swift) - Apple's ML framework
 - [swift-transformers](https://github.com/huggingface/swift-transformers) - Tokenizers
-- [swift-argument-parser](https://github.com/apple/swift-argument-parser) - CLI parsing
 
 **Python (for embedding generation):**
 - mlx
 - mlx-embeddings
 - numpy
+- tqdm
 
 ## Acknowledgments
 
-- Recipe data from [AllRecipes.com Archive](https://archive.org/details/allrecipes.com_recipes_12042020000000)
-- Embedding model: [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ) by [MLX Community](https://huggingface.co/mlx-community), based on [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)
+- Recipe data from [NYTimes Cooking](https://cooking.nytimes.com/)
+- Embedding model: [Qwen3-Embedding-0.6B-4bit-DWQ](https://huggingface.co/mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ)
 - MLX framework by [Apple](https://github.com/ml-explore/mlx)

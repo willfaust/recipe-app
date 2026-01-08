@@ -32,13 +32,6 @@ struct NutritionLabelView: View {
                 .frame(height: 1)
                 .foregroundStyle(borderColor)
 
-            if let servings = nutrition.servings, servings != "0" {
-                Text("\(servings) servings per container")
-                    .font(.caption)
-                    .foregroundStyle(secondaryTextColor)
-                    .padding(.vertical, 4)
-            }
-
             Rectangle()
                 .frame(height: 8)
                 .foregroundStyle(textColor)
@@ -58,47 +51,37 @@ struct NutritionLabelView: View {
 
             thickDivider
 
-            // Daily Value header
-            HStack {
-                Spacer()
-                Text("% Daily Value*")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundStyle(textColor)
-            }
-            .padding(.vertical, 2)
-
-            thinDivider
-
             // Main nutrients
             nutrientRow("Total Fat", value: nutrition.totalFat, unit: "g", bold: true)
             thinDivider
             nutrientRow("  Saturated Fat", value: nutrition.saturatedFat, unit: "g", bold: false)
             thinDivider
+            nutrientRow("  Unsaturated Fat", value: nutrition.unsaturatedFat, unit: "g", bold: false)
+            thinDivider
+            nutrientRow("  Trans Fat", value: nutrition.transFat, unit: "g", bold: false)
+            thinDivider
             nutrientRow("Cholesterol", value: nutrition.cholesterol, unit: "mg", bold: true)
             thinDivider
             nutrientRow("Sodium", value: nutrition.sodium, unit: "mg", bold: true)
             thinDivider
-            nutrientRow("Potassium", value: nutrition.potassium, unit: "mg", bold: true)
-            thinDivider
             nutrientRow("Total Carbohydrate", value: nutrition.totalCarbohydrate, unit: "g", bold: true)
             thinDivider
-            nutrientRow("  Dietary Fiber", value: nutrition.dietryFibre, unit: "g", bold: false)
+            nutrientRow("  Dietary Fiber", value: nutrition.fiber, unit: "g", bold: false)
             thinDivider
-            nutrientRow("  Sugars", value: nutrition.sugars, unit: "g", bold: false)
+            nutrientRow("  Sugars", value: nutrition.sugar, unit: "g", bold: false)
             thinDivider
             nutrientRow("Protein", value: nutrition.protein, unit: "g", bold: true)
 
             thickDivider
 
-            // Vitamins and minerals
-            vitaminRow("Vitamin A", value: nutrition.vitaminA)
+            // Vitamins and minerals (N/A for NYTimes data)
+            vitaminRow("Vitamin A", value: nil)
             thinDivider
-            vitaminRow("Vitamin C", value: nutrition.vitaminC)
+            vitaminRow("Vitamin C", value: nil)
             thinDivider
-            vitaminRow("Calcium", value: nutrition.calcium)
+            vitaminRow("Calcium", value: nil)
             thinDivider
-            vitaminRow("Iron", value: nutrition.iron)
+            vitaminRow("Iron", value: nil)
 
             thinDivider
 
@@ -137,7 +120,7 @@ struct NutritionLabelView: View {
             Text(name)
                 .font(.system(size: 12, weight: bold ? .bold : .regular))
                 .foregroundStyle(textColor)
-            Text(formatNutrientValue(value, unit: unit))
+            Text(NutritionInfo.formatValue(value, defaultUnit: unit))
                 .font(.system(size: 12))
                 .foregroundStyle(textColor)
             Spacer()
@@ -151,59 +134,27 @@ struct NutritionLabelView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(textColor)
             Spacer()
-            Text(formatVitaminValue(value))
+            Text("N/A")
                 .font(.system(size: 12))
-                .foregroundStyle(textColor)
+                .foregroundStyle(secondaryTextColor)
         }
         .padding(.vertical, 2)
-    }
-
-    /// Formats nutrient value, avoiding duplicate units
-    private func formatNutrientValue(_ value: String?, unit: String) -> String {
-        guard let value = value, !value.isEmpty else { return "0\(unit)" }
-        // Check if value already contains a unit (g, mg, etc.)
-        let hasUnit = value.contains("g") || value.contains("mg") || value.contains("mcg")
-        if hasUnit {
-            return value
-        }
-        return "\(value)\(unit)"
-    }
-
-    /// Formats vitamin/mineral value as percentage
-    private func formatVitaminValue(_ value: String?) -> String {
-        guard let value = value, !value.isEmpty else { return "0%" }
-        // Extract just the numeric part if it contains units like IU, mg, mcg
-        let numericValue = value
-            .replacingOccurrences(of: "IU", with: "")
-            .replacingOccurrences(of: "mcg", with: "")
-            .replacingOccurrences(of: "mg", with: "")
-            .replacingOccurrences(of: "%", with: "")
-            .trimmingCharacters(in: .whitespaces)
-        // If already ends with %, don't add another
-        if value.hasSuffix("%") {
-            return value
-        }
-        return "\(numericValue)%"
     }
 }
 
 #Preview {
     NutritionLabelView(nutrition: NutritionInfo(
         calories: "250",
-        servings: "4",
-        totalFat: "12",
-        saturatedFat: "3",
-        cholesterol: "30",
-        sodium: "470",
-        potassium: "350",
-        totalCarbohydrate: "31",
-        dietryFibre: "4",
-        protein: "5",
-        sugars: "5",
-        vitaminA: "4",
-        vitaminC: "2",
-        calcium: "20",
-        iron: "4"
+        totalFat: "12 grams",
+        saturatedFat: "3 grams",
+        unsaturatedFat: "7 grams",
+        transFat: "0 grams",
+        cholesterol: "30 milligrams",
+        sodium: "470 milligrams",
+        totalCarbohydrate: "31 grams",
+        fiber: "4 grams",
+        sugar: "5 grams",
+        protein: "5 grams"
     ))
     .padding()
 }

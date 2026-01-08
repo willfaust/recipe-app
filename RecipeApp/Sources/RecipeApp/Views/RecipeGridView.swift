@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 // MARK: - Glass Effect Extension (iOS 26+ with fallback)
 extension View {
@@ -16,13 +19,9 @@ struct RecipeGridView: View {
     let results: [SearchResult]
     @Binding var selectedRecipe: Recipe?
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 180, maximum: 220), spacing: 12)
-    ]
-
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 12) {
+            RecipeFlowLayout(spacing: 12) {
                 ForEach(results) { result in
                     RecipeCard(result: result, isSelected: selectedRecipe?.id == result.recipe.id)
                         .onTapGesture {
@@ -32,8 +31,86 @@ struct RecipeGridView: View {
                         }
                 }
             }
-            .padding()
+            .padding(12)
         }
+    }
+}
+
+/// Flow layout that wraps cards to the next row when they don't fit, centered
+struct RecipeFlowLayout: Layout {
+    var spacing: CGFloat = 12
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        let rows = computeRows(maxWidth: maxWidth, subviews: subviews)
+        let totalHeight = rows.reduce(0) { $0 + $1.height } + CGFloat(max(0, rows.count - 1)) * spacing
+        return CGSize(width: maxWidth, height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = computeRows(maxWidth: bounds.width, subviews: subviews)
+
+        var currentY: CGFloat = 0
+        var subviewIndex = 0
+
+        for row in rows {
+            // Center the row
+            let rowOffset = (bounds.width - row.width) / 2
+
+            var currentX = rowOffset
+            for _ in 0..<row.count {
+                let size = row.sizes[subviewIndex - (row.startIndex)]
+                subviews[subviewIndex].place(
+                    at: CGPoint(x: bounds.minX + currentX, y: bounds.minY + currentY),
+                    proposal: ProposedViewSize(size)
+                )
+                currentX += size.width + spacing
+                subviewIndex += 1
+            }
+
+            currentY += row.height + spacing
+        }
+    }
+
+    private struct Row {
+        var startIndex: Int
+        var count: Int
+        var width: CGFloat
+        var height: CGFloat
+        var sizes: [CGSize]
+    }
+
+    private func computeRows(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var currentRow = Row(startIndex: 0, count: 0, width: 0, height: 0, sizes: [])
+        var currentX: CGFloat = 0
+
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(.unspecified)
+
+            if currentX + size.width > maxWidth && currentRow.count > 0 {
+                // Finish current row (remove trailing spacing from width)
+                currentRow.width = currentX - spacing
+                rows.append(currentRow)
+
+                // Start new row
+                currentRow = Row(startIndex: index, count: 0, width: 0, height: 0, sizes: [])
+                currentX = 0
+            }
+
+            currentRow.count += 1
+            currentRow.height = max(currentRow.height, size.height)
+            currentRow.sizes.append(size)
+            currentX += size.width + spacing
+        }
+
+        // Don't forget the last row
+        if currentRow.count > 0 {
+            currentRow.width = currentX - spacing
+            rows.append(currentRow)
+        }
+
+        return rows
     }
 }
 
@@ -41,17 +118,28 @@ struct RecipeCard: View {
     let result: SearchResult
     let isSelected: Bool
 
+    private let cardHeight: CGFloat = 120
+    private let minCardWidth: CGFloat = 140
+    private let maxCardWidth: CGFloat = 220
+    @State private var imageAspectRatio: CGFloat = 1.5  // Default 3:2 ratio
+
+    private var cardWidth: CGFloat {
+        let width = cardHeight * imageAspectRatio
+        return min(max(width, minCardWidth), maxCardWidth)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             thumbnailSection
             contentSection
         }
+        .frame(width: cardWidth)
         .contentShape(Rectangle())
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .glassCard(in: RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .glassCard(in: RoundedRectangle(cornerRadius: 16))
         .overlay {
             if isSelected {
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(Color.accentColor, lineWidth: 3)
             }
         }
@@ -67,14 +155,26 @@ struct RecipeCard: View {
             case .success(let image):
                 image
                     .resizable()
-                    .aspectRatio(1, contentMode: .fill)
+                    .aspectRatio(contentMode: .fill)
+                    .onAppear {
+                        // Get the actual image aspect ratio
+                        #if os(macOS)
+                        if let nsImage = NSImage(contentsOf: result.recipe.thumbnailURL!) {
+                            let ratio = nsImage.size.width / nsImage.size.height
+                            if ratio > 0 {
+                                imageAspectRatio = ratio
+                            }
+                        }
+                        #endif
+                    }
             case .failure:
                 placeholderImage
             @unknown default:
                 placeholderImage
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        .frame(height: cardHeight)
+        .frame(maxWidth: .infinity)
         .clipped()
     }
 
@@ -93,7 +193,6 @@ struct RecipeCard: View {
                 .font(.system(size: 30))
                 .foregroundStyle(.white.opacity(0.6))
         }
-        .aspectRatio(1, contentMode: .fit)
     }
 
     private var contentSection: some View {
@@ -127,6 +226,12 @@ struct RecipeCard: View {
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
+
+            if let count = result.recipe.ratingCount, let countInt = Int(count), countInt > 0 {
+                Text("(\(countInt))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }
@@ -142,6 +247,7 @@ struct RecipeCard: View {
                     ingredients: ["flour", "sugar", "cocoa"],
                     steps: nil,
                     rating: "4.5",
+                    ratingCount: "127",
                     images: nil,
                     nutritionalInformation: nil,
                     prepTime: nil,

@@ -1,9 +1,9 @@
-# Data files (download separately)
+# Data archives (download separately)
 allrecipes-archive/
+nytimes-archive/
 
-# Generated embeddings and index (generate or download separately)
-*.bin
-*.npz
+# Build output
+build/
 
 # Python
 venv/
@@ -17,7 +17,6 @@ __pycache__/
 .build/
 .swiftpm/
 DerivedData/
-build/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcuserstate
@@ -42,4 +41,3 @@ Package.resolved
 # Temporary files
 *.log
 *.tmp
-test_query.bin

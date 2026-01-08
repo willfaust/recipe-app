@@ -86,7 +86,7 @@ struct ContentView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.primary)
 
-            Text("Semantic search through 50k+ recipes")
+            Text("Semantic search through 25k+ recipes")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
