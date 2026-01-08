@@ -7,6 +7,11 @@ import MLXLinalg
 import Tokenizers
 import Hub
 
+enum SearchMode: Equatable {
+    case semantic
+    case text
+}
+
 @MainActor
 final class RecipeSearchEngine: ObservableObject {
     @Published var searchQuery = ""
@@ -14,6 +19,9 @@ final class RecipeSearchEngine: ObservableObject {
     @Published var isLoading = true
     @Published var loadingStatus = "Initializing..."
     @Published var errorMessage: String?
+    @Published var searchMode: SearchMode = .semantic
+    @Published var hasMoreResults = false
+    @Published var totalResultCount = 0
 
     private var recipes: [Recipe] = []
     private var embeddingsMatrix: MLXArray?
@@ -22,33 +30,30 @@ final class RecipeSearchEngine: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
-    private let resultCount = 20
+    private let pageSize = 20
+    private var currentPage = 0
+    private var allSemanticResults: [(index: Int, similarity: Float)] = []
+    private var allTextResults: [Int] = []
 
     init() {
-        print("[RecipeSearchEngine] Initializing...")
-        // Debounce search input for live updating
         $searchQuery
             .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] query in
-                print("[RecipeSearchEngine] Query changed: '\(query)'")
+                self?.currentPage = 0
                 self?.performSearch(query: query)
             }
             .store(in: &cancellables)
     }
 
     func loadData() async {
-        print("[RecipeSearchEngine] loadData() called")
         do {
-            // Load recipes
             loadingStatus = "Loading recipes..."
-            print("[RecipeSearchEngine] \(loadingStatus)")
             let recipesURL = ProjectPaths.recipesJSON
             let recipesData = try Data(contentsOf: recipesURL)
             recipes = try JSONDecoder().decode([Recipe].self, from: recipesData)
             loadingStatus = "Loaded \(recipes.count) recipes"
 
-            // Load embeddings
             loadingStatus = "Loading embeddings..."
             let embeddingsURL = ProjectPaths.embeddingsBin
             let embeddingsData = try Data(contentsOf: embeddingsURL)
@@ -67,7 +72,6 @@ final class RecipeSearchEngine: ObservableObject {
             eval(embeddingsMatrix!)
             loadingStatus = "Loaded embeddings (\(count) x \(dim))"
 
-            // Load model (prefers bundled model, falls back to HuggingFace download)
             loadingStatus = "Loading embedding model..."
             let config = ModelConfiguration.preferBundled()
             modelContainer = try await loadModelContainer(configuration: config)
@@ -81,18 +85,42 @@ final class RecipeSearchEngine: ObservableObject {
         }
     }
 
+    func setSearchMode(_ mode: SearchMode) {
+        guard mode != searchMode else { return }
+        searchMode = mode
+        currentPage = 0
+        performSearch(query: searchQuery)
+    }
+
+    func loadMore() {
+        currentPage += 1
+        updateDisplayedResults()
+    }
+
     private func performSearch(query: String) {
         searchTask?.cancel()
 
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmedQuery.isEmpty else {
             searchResults = []
+            allSemanticResults = []
+            allTextResults = []
+            hasMoreResults = false
+            totalResultCount = 0
             return
         }
 
+        if searchMode == .semantic {
+            performSemanticSearch(query: trimmedQuery)
+        } else {
+            performTextSearch(query: trimmedQuery)
+        }
+    }
+
+    private func performSemanticSearch(query: String) {
         guard let embeddingsMatrix, let modelContainer else { return }
 
         searchTask = Task {
-            // Generate query embedding
             let queryEmbeddingArray = await modelContainer.perform { model, tokenizer in
                 Self.generateEmbedding(text: query, model: model, tokenizer: tokenizer)
             }
@@ -101,30 +129,92 @@ final class RecipeSearchEngine: ObservableObject {
 
             let queryEmbedding = MLXArray(queryEmbeddingArray)
 
-            // GPU-accelerated search
-            let results = Self.searchTopK(
+            // Get all results sorted by similarity
+            allSemanticResults = Self.searchAll(
                 query: queryEmbedding,
-                embeddingsMatrix: embeddingsMatrix,
-                k: resultCount
+                embeddingsMatrix: embeddingsMatrix
             )
 
             if Task.isCancelled { return }
 
-            // Map to SearchResult
-            let recipesCopy = self.recipes
-            let newResults = results.compactMap { result -> SearchResult? in
-                guard result.index < recipesCopy.count else { return nil }
-                return SearchResult(
-                    recipe: recipesCopy[result.index],
-                    similarity: result.similarity
-                )
-            }
-            self.searchResults = newResults
+            totalResultCount = allSemanticResults.count
+            updateDisplayedResults()
         }
     }
 
+    private func performTextSearch(query: String) {
+        let queryLower = query.lowercased()
+        let queryWords = queryLower.split(separator: " ").map(String.init)
+
+        // Score each recipe by text match
+        var scored: [(index: Int, score: Int)] = []
+
+        for (index, recipe) in recipes.enumerated() {
+            var score = 0
+
+            let titleLower = recipe.title.lowercased()
+            let descLower = (recipe.description ?? "").lowercased()
+            let ingredientsLower = (recipe.ingredients ?? []).joined(separator: " ").lowercased()
+
+            for word in queryWords {
+                // Title matches are weighted higher
+                if titleLower.contains(word) {
+                    score += 10
+                }
+                if descLower.contains(word) {
+                    score += 3
+                }
+                if ingredientsLower.contains(word) {
+                    score += 2
+                }
+            }
+
+            // Exact phrase match bonus
+            if titleLower.contains(queryLower) {
+                score += 20
+            }
+
+            if score > 0 {
+                scored.append((index: index, score: score))
+            }
+        }
+
+        // Sort by score descending
+        scored.sort { $0.score > $1.score }
+        allTextResults = scored.map { $0.index }
+
+        totalResultCount = allTextResults.count
+        updateDisplayedResults()
+    }
+
+    private func updateDisplayedResults() {
+        let startIndex = 0
+        let endIndex = min((currentPage + 1) * pageSize, totalResultCount)
+
+        if searchMode == .semantic {
+            let resultsSlice = Array(allSemanticResults.prefix(endIndex))
+            searchResults = resultsSlice.compactMap { result -> SearchResult? in
+                guard result.index < recipes.count else { return nil }
+                return SearchResult(
+                    recipe: recipes[result.index],
+                    similarity: result.similarity
+                )
+            }
+        } else {
+            let indicesSlice = Array(allTextResults.prefix(endIndex))
+            searchResults = indicesSlice.compactMap { index -> SearchResult? in
+                guard index < recipes.count else { return nil }
+                return SearchResult(
+                    recipe: recipes[index],
+                    similarity: 1.0  // Text search doesn't have similarity scores
+                )
+            }
+        }
+
+        hasMoreResults = endIndex < totalResultCount
+    }
+
     private nonisolated static func generateEmbedding(text: String, model: EmbeddingModel, tokenizer: Tokenizer) -> [Float] {
-        // Use instruction prefix for better retrieval quality with Qwen3
         let queryWithInstruction = "Instruct: Find recipes matching this description\nQuery: \(text)"
         var encoded = tokenizer.encode(text: queryWithInstruction, addSpecialTokens: true)
 
@@ -145,16 +235,17 @@ final class RecipeSearchEngine: ObservableObject {
         return embedding.asArray(Float.self)
     }
 
-    private nonisolated static func searchTopK(query: MLXArray, embeddingsMatrix: MLXArray, k: Int) -> [(index: Int, similarity: Float)] {
+    private nonisolated static func searchAll(query: MLXArray, embeddingsMatrix: MLXArray) -> [(index: Int, similarity: Float)] {
         let queryNorm = sqrt(sum(query * query))
         let normalizedQuery = query / queryNorm
 
         let similarities = matmul(normalizedQuery.reshaped([1, -1]), embeddingsMatrix.T).squeezed()
 
-        let topIndices = argSort(similarities)[(-k)...]
-        eval(topIndices)
+        // Sort all by similarity
+        let sortedIndices = argSort(similarities)
+        eval(sortedIndices)
 
-        let indicesArray = topIndices.asArray(Int32.self).reversed()
+        let indicesArray = sortedIndices.asArray(Int32.self).reversed()
         let simArray = similarities.asArray(Float.self)
 
         return indicesArray.map { idx in

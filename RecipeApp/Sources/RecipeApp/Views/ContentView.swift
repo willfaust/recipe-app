@@ -131,11 +131,80 @@ struct ContentView: View {
         } else if searchEngine.searchResults.isEmpty {
             emptySearchView
         } else {
-            RecipeGridView(
-                results: searchEngine.searchResults,
-                selectedRecipe: $selectedRecipe
-            )
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Search mode toggle and result count
+                    searchModeBar
+
+                    // Recipe grid
+                    RecipeFlowLayout(spacing: 12) {
+                        ForEach(searchEngine.searchResults) { result in
+                            RecipeCard(result: result, isSelected: selectedRecipe?.id == result.recipe.id)
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        selectedRecipe = result.recipe
+                                    }
+                                }
+                        }
+                    }
+
+                    // Load more button
+                    if searchEngine.hasMoreResults {
+                        loadMoreButton
+                    }
+                }
+                .padding(12)
+            }
         }
+    }
+
+    private var searchModeBar: some View {
+        HStack {
+            // Result count
+            Text("\(searchEngine.searchResults.count) of \(searchEngine.totalResultCount) results")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            // Search mode toggle
+            HStack(spacing: 8) {
+                Button {
+                    searchEngine.setSearchMode(.semantic)
+                } label: {
+                    Label("Semantic", systemImage: "brain")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .tint(searchEngine.searchMode == .semantic ? .blue : .gray)
+
+                Button {
+                    searchEngine.setSearchMode(.text)
+                } label: {
+                    Label("Text", systemImage: "text.magnifyingglass")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .tint(searchEngine.searchMode == .text ? .blue : .gray)
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var loadMoreButton: some View {
+        Button {
+            searchEngine.loadMore()
+        } label: {
+            HStack {
+                Image(systemName: "arrow.down.circle")
+                Text("Load 20 more")
+            }
+            .font(.subheadline)
+            .fontWeight(.medium)
+        }
+        .glassButton()
+        .tint(.blue)
+        .padding(.vertical, 8)
     }
 
     private var loadingView: some View {

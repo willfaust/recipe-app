@@ -208,9 +208,12 @@ struct RecipeCard: View {
                     ratingView(rating)
                 }
                 Spacer()
-                Text("\(Int(result.similarity * 100))%")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                // Don't show percentage for text search (similarity = 1.0)
+                if result.similarity < 1.0 {
+                    Text("\(Int(result.similarity * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(10)
