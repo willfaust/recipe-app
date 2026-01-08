@@ -213,6 +213,8 @@ struct RecipeCard: View {
                     Text("\(Int(result.similarity * 100))%")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: result.similarity)
                 }
             }
         }

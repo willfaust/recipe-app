@@ -138,10 +138,14 @@ struct ContentView: View {
                     // Search mode toggle and result count
                     searchModeBar
 
-                    // Recipe grid
+                    // Recipe grid with smooth animations
                     RecipeFlowLayout(spacing: 12) {
                         ForEach(searchEngine.searchResults) { result in
                             RecipeCard(result: result, isSelected: selectedRecipe?.id == result.recipe.id)
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                    removal: .scale(scale: 0.8).combined(with: .opacity)
+                                ))
                                 .onTapGesture {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                         selectedRecipe = result.recipe
@@ -149,6 +153,7 @@ struct ContentView: View {
                                 }
                         }
                     }
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: searchEngine.searchResults)
 
                     // Load more button
                     if searchEngine.hasMoreResults {
